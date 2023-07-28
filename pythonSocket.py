@@ -102,7 +102,7 @@ def send_data(serverSocket2):
             #print('lock?')
             coord = (torch.flatten(motion_tensor, 0)).tolist()
             coord = list(np.round(coord, 6))
-            sending = ''
+            sending = str(Frame) + ' ' + str(Scale) + ' '
             for i in range(len(coord)):
                 sending = sending + str(coord[i])
                 if i < len(coord) - 1:
@@ -129,7 +129,7 @@ def recv_all(connectionSocket):
     received += connectionSocket.recv(1024).decode()
     while True:
         if isFirstPacket:
-            tmp = list(map(float, received.split()))
+            tmp = list(map(np.float32, received.split()))
             totalPacketSize = int(tmp[0])
             isFirstPacket = False
         else:
