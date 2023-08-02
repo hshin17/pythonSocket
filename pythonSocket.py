@@ -6,13 +6,14 @@ import time
 
 lock = threading.Lock()
 motion_tensor = torch.Tensor()
+memorizing_tensor = torch.Tensor() # memorizing tensor before operation for later input with opType == 3
 isServerRunning = False
 isGoodToGo = False
 isTensorInitialized = False
 Dimension = 57
 Frame = 0
 Scale = 1.0
-opType = 0      # opType == -1 for negative, 1 for positive, 2 for addition
+opType = 0      # opType == -1 for negative, 1 for positive, 2 for addition, 3 for repetition(only scale value changes)
 
 def handling_recv_packet(recv_string):
     global Dimension, Frame, Scale, opType
@@ -23,20 +24,18 @@ def handling_recv_packet(recv_string):
     opType = int(tmp[3])
     lock.release()
     tmp = [round(float(x), 2) for x in tmp]
-    
-    initialize_tensor()
-    for i in range(4, len(tmp), Dimension):
-        single_frame_motion = []
-        for j in range(Dimension):
-            '''
-            if i + j >= len(tmp):
-                print('Debug: i is {0}, j is {1}, Dimension is {2},  Frame is {3}. But len(tmp) is {4} < Dimension * Frame + 2 {5}. len(recv_string) is {6}'.format(i,j,Dimension, Frame, len(tmp), Dimension * Frame + 2, len(recv_string)))
-                print('recv_string info: {0}'.format(recv_string))
-                break
-            '''
-            single_frame_motion.append(tmp[i + j])
 
-        set_tensor(single_frame_motion)
+    if not opType == 3: 
+        initialize_tensor()
+        for i in range(4, len(tmp), Dimension):
+            single_frame_motion = []
+            for j in range(Dimension):
+                single_frame_motion.append(tmp[i + j])
+
+            set_tensor(single_frame_motion)
+        
+    if opType == 3 and len(motion_tensor) < 1:
+        initialize_tensor()
     
     applying_inference()
     return
@@ -74,19 +73,23 @@ def set_tensor(single_frame_motion):
     return
 
 def applying_inference(): # temporary function applying inference result
-    global motion_tensor
+    global motion_tensor, memorizing_tensor
     lock.acquire()
+    if opType == 3:
+        print('opType == 3 (repetition)')
+        motion_tensor = memorizing_tensor * Scale
     if opType == 2:
-        print('in case of addition')
+        print('opType == 2 (addition)')
         motion_tensor = applying_addition()
     else:
+        memorizing_tensor = motion_tensor
         motion_tensor = motion_tensor * Scale
     lock.release()
     print('inference applied')
     return
 
 def applying_addition():
-    global motion_tensor
+    global motion_tensor, memorizing_tensor
     
     device = 'cpu'
     if torch.cuda.is_available():
@@ -101,6 +104,7 @@ def applying_addition():
         tmp_tensor2 = torch.cat([tmp_tensor2, motion_tensor[i]], dim=0)
     
     res_tensor = torch.add(tmp_tensor1, tmp_tensor2)
+    memorizing_tensor = res_tensor
     res_tensor = res_tensor * Scale
     return res_tensor
 
