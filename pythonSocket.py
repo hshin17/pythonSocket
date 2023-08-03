@@ -77,8 +77,9 @@ def applying_inference(): # temporary function applying inference result
     lock.acquire()
     if opType == 3:
         print('opType == 3 (repetition)')
+        print(memorizing_tensor)
         motion_tensor = memorizing_tensor * Scale
-    if opType == 2:
+    elif opType == 2:
         print('opType == 2 (addition)')
         motion_tensor = applying_addition()
     else:
