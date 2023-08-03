@@ -77,7 +77,6 @@ def applying_inference(): # temporary function applying inference result
     lock.acquire()
     if opType == 3:
         print('opType == 3 (repetition)')
-        print(memorizing_tensor)
         motion_tensor = memorizing_tensor * Scale
     elif opType == 2:
         print('opType == 2 (addition)')
@@ -129,6 +128,7 @@ def send_data(serverSocket2):
             if not isGoodToGo:
                 time.sleep(0.001)
                 continue
+
             print('in send_data function')
             lock.acquire()
             #print('lock?')
