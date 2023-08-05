@@ -117,17 +117,13 @@ def socket_test(tensor):
 def send_data(serverSocket2):
     #print('Input joint coordinates here. Input only one value to send scale value, or press Enter to terminate.')
     
-    while True:
-        connectionSocket, addr = serverSocket2.accept()
+#    while True:
+            connectionSocket, addr = serverSocket2.accept()
         
-        while True:
+        
             coord = []
             global motion_tensor
             global isGoodToGo
-            
-            if not isGoodToGo:
-                time.sleep(0.001)
-                continue
 
             print('in send_data function')
             lock.acquire()
@@ -152,13 +148,14 @@ def send_data(serverSocket2):
             connectionSocket.recv(1024)   #ack
             print('sent')
             isGoodToGo = False
+            connectionSocket.close()
 
 def recv_all(connectionSocket):
     received = ""
     isFirstPacket = True
     totalPacketSize = 0
     
-    received += connectionSocket.recv(1024).decode()
+    received += connectionSocket.recv(102400).decode()
     while True:
         if isFirstPacket:
             tmp = list(map(np.float32, received.split()))
@@ -167,7 +164,7 @@ def recv_all(connectionSocket):
         else:
             if len(received) >= totalPacketSize:
                 break
-            received += connectionSocket.recv(1024).decode()
+            received += connectionSocket.recv(102400).decode()
     
     return received
 
@@ -177,25 +174,21 @@ def receive_data(serverSocket):
         global isServerRunning
         global isGoodToGo
         connectionSocket, addr = serverSocket.accept()
+        lock.acquire()
         received = recv_all(connectionSocket)
-        while (received):
-            isServerRunning = True
-            #print(received)
-            ack_message = "Acknowledge_from_server"
-            connectionSocket.send(ack_message.encode())
-            handling_recv_packet(received)
-            isGoodToGo = True
-            while isGoodToGo:
-                time.sleep(0.001)
-            received = recv_all(connectionSocket)
-            
-        close_msg = "Connection is closed"
-        print(close_msg)
+        isServerRunning = True
+        #print(received)
+        isGoodToGo = True
+        lock.release()
+        #ack_message = "Acknowledge_from_server"
+        #connectionSocket.send(ack_message.encode())
+        #close_msg = "Connection is closed"
+        #print(close_msg)
         data = []
-        connectionSocket.send(close_msg.encode())
+        
+        handling_recv_packet(received)
+        send_data(serverSocket2)
         connectionSocket.close()
-
-
 def receive_func(serverSocket1, serverName='default', serverPort=50001):
     if serverName == 'default':
         serverSocket1.bind(('', serverPort))
@@ -214,7 +207,7 @@ def send_func(serverSocket2, serverName='default', serverPort=50002):
         serverSocket2.bind((serverName, serverPort))
     serverSocket2.listen(1)
     print('The server is ready to send. Port number is: ', serverPort)
-    send_data(serverSocket2)
+    #send_data(serverSocket2)
 
 if __name__ == "__main__":
     receivingPort = 50001 #Temporary default value
@@ -226,8 +219,9 @@ if __name__ == "__main__":
     serverSocket2.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
 
     server1 = threading.Thread(target=receive_func, args=(serverSocket1, 'default', receivingPort))  #receiver
-    server2 = threading.Thread(target=send_func, args=(serverSocket2, 'default', sendingPort))  #sender
+    #server2 = threading.Thread(target=send_func, args=(serverSocket2, 'default', sendingPort))  #sender
+    send_func(serverSocket2, 'default', sendingPort)
 
     server1.start()
-    server2.start()
+    #server2.start()
     print('end of main func')
